@@ -294,6 +294,7 @@
     // This fetches a JSON with global gold prices
     const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
     const API_PROXY_URL = "https://api.allorigins.win/raw?url=";
+    const ALPHA_BASE_URL = "https://www.alphavantage.co/query";
     
     // Constants
     const OUNCE_TO_GRAM = 31.1035;
@@ -388,15 +389,43 @@
         return 0;
     }
 
+    function parseAlphaUsdGoldOunce(data) {
+        // Alpha Vantage CURRENCY_EXCHANGE_RATE from XAU -> USD
+        const rate = parseFloat(data?.["Realtime Currency Exchange Rate"]?.["5. Exchange Rate"]);
+        if (Number.isFinite(rate) && rate > 0) return rate;
+        return 0;
+    }
+
+    async function fetchAlphaLiveUSDGoldOunce() {
+        const endpoint = new URL(ALPHA_BASE_URL);
+        endpoint.searchParams.set("function", "CURRENCY_EXCHANGE_RATE");
+        endpoint.searchParams.set("from_currency", "XAU");
+        endpoint.searchParams.set("to_currency", "USD");
+        endpoint.searchParams.set("apikey", HISTORY_ALPHA_API_KEY);
+        const payload = await fetchJsonWithTimeout(endpoint.toString(), 10000);
+        if (payload?.Note || payload?.Information || payload?.Error_Message) {
+            throw new Error("Alpha Vantage live rate-limited/unavailable");
+        }
+        const price = parseAlphaUsdGoldOunce(payload);
+        if (price > 0) return price;
+        throw new Error("Alpha Vantage live parse failed");
+    }
+
     async function fetchLiveUSDGoldOunce() {
-        // 1) Direct endpoint
+        // 1) Alpha Vantage first (same provider as history, better consistency)
+        try {
+            const alphaPrice = await fetchAlphaLiveUSDGoldOunce();
+            if (alphaPrice > 0) return alphaPrice;
+        } catch (_) {}
+
+        // 2) Direct endpoint fallback
         try {
             const directData = await fetchJsonWithTimeout(API_URL);
             const directPrice = parseUSDGoldOunce(directData);
             if (directPrice > 0) return directPrice;
         } catch (_) {}
 
-        // 2) CORS proxy fallback (helps on GitHub Pages when origin is blocked)
+        // 3) CORS proxy fallback (helps on GitHub Pages when origin is blocked)
         try {
             const proxiedData = await fetchJsonWithTimeout(API_PROXY_URL + encodeURIComponent(API_URL));
             const proxiedPrice = parseUSDGoldOunce(proxiedData);
@@ -446,12 +475,15 @@
             }
         }
 
-        await fetchHistoryData();
         btn.innerText = text[currentLang].refresh;
         btn.disabled = false;
         renderKarats();
         calculate();
-        renderHistoryChart();
+
+        // Keep UI responsive: load history in background.
+        fetchHistoryData()
+            .catch(() => {})
+            .finally(() => renderHistoryChart());
     }
 
     function renderKarats() {
@@ -651,15 +683,14 @@
         }
 
         try {
-            const endpoint = new URL('https://www.alphavantage.co/query');
+            const endpoint = new URL(ALPHA_BASE_URL);
             endpoint.searchParams.set('function', 'GOLD_SILVER_HISTORY');
             endpoint.searchParams.set('symbol', 'XAU');
             endpoint.searchParams.set('market', 'USD');
             endpoint.searchParams.set('interval', 'daily');
             endpoint.searchParams.set('apikey', HISTORY_ALPHA_API_KEY);
 
-            const response = await fetch(endpoint.toString());
-            const payload = await response.json();
+            const payload = await fetchJsonWithTimeout(endpoint.toString(), 12000);
 
             if (payload?.Note || payload?.Information || payload?.Error_Message) {
                 throw new Error('History rate-limited or unavailable');
