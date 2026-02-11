@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حاسبة الذهب الحية</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #d4af37;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--card);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Language Toggle */
+        .lang-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.5);
+            padding: 4px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            z-index: 20;
+            font-family: inherit;
+            backdrop-filter: blur(4px);
+        }
+        html[dir="ltr"] .lang-btn { right: 15px; left: auto; }
+
+        .header {
+            background: linear-gradient(135deg, #d4af37, #b5952f);
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .header .status { font-size: 0.8rem; opacity: 0.9; margin-top: 5px; display: inline-block; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px; }
+
+        .content { padding: 20px; }
+
+        /* Karat Grid */
+        .karat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .k-btn {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 2px;
+            text-align: center;
+            cursor: pointer;
+            background: #fff;
+            transition: 0.2s;
+        }
+        .k-btn.active {
+            background: #fffbeb;
+            border-color: var(--primary);
+            color: #92400e;
+            box-shadow: 0 2px 4px rgba(212, 175, 55, 0.2);
+        }
+        .k-label { font-weight: 700; font-size: 0.9rem; display: block; }
+        .k-price { font-size: 0.8rem; color: #64748b; margin-top: 2px; display: block; }
+
+        /* Inputs */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.9rem; margin-bottom: 5px; font-weight: 500; }
+        .input-box { position: relative; display: flex; align-items: center; }
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-family: inherit;
+            outline: none;
+            direction: ltr; /* Numbers always LTR */
+            text-align: left; 
+        }
+        html[dir="rtl"] input { text-align: right; }
+        
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(212,175,55,0.1); }
+        .suffix { position: absolute; left: 15px; color: #94a3b8; font-size: 0.9rem; pointer-events: none; }
+        html[dir="ltr"] .suffix { right: 15px; left: auto; }
+
+        /* Update Button */
+        .btn-refresh {
+            width: 100%;
+            padding: 12px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 10px;
+            color: #475569;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-family: inherit;
+        }
+        .btn-refresh:active { background: #e2e8f0; }
+
+        /* Results */
+        .result-box {
+            background: #1e293b;
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        .line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; color: #94a3b8; }
+        .line.final { margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; color: var(--primary); font-weight: 700; font-size: 1.3rem; align-items: center; }
+        .line span:last-child { color: #f8fafc; }
+        .line.final span:last-child { color: var(--primary); }
+
+        /* Toggle */
+        .toggle-wrap { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; font-weight: 500;}
+        .switch { position: relative; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px; transition: .3s; cursor: pointer; }
+        .slider:before { content:""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+        
+        .hidden { display: none; }
+
+        .chart-card {
+            margin-top: 16px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+        .chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .chart-head span {
+            font-size: 0.8rem;
+            color: #64748b;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .chart-wrap {
+            position: relative;
+            height: 180px;
+        }
+        #chartSvg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+        .chart-tooltip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -120%);
+            background: #0f172a;
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 6px 8px;
+            border-radius: 8px;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 5;
+            box-shadow: 0 6px 16px rgba(2, 6, 23, 0.35);
+        }
+        .chart-foot {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .k-price {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="lang-btn" onclick="toggleLang()">English</button>
+    
+    <div class="header">
+        <h1 data-key="title">حاسبة الذهب</h1>
+        <div class="status" id="marketStatus">● Live Market</div>
+    </div>
+
+    <div class="content">
+        <label style="font-size:0.9rem; font-weight:600; margin-bottom:8px; display:block;" data-key="chooseKarat">اختر العيار</label>
+        <div class="karat-grid" id="karatContainer"></div>
+
+        <button class="btn-refresh" onclick="fetchLivePrice()" id="refreshBtn">تحديث الأسعار الآن</button>
+
+        <div class="input-group">
+            <label data-key="weight">الوزن (جرام)</label>
+            <div class="input-box">
+                <input type="number" id="weight" placeholder="0.00" oninput="calculate()">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label data-key="labor">المصنعية (ريال/جرام)</label>
+            <div class="input-box">
+                <input type="number" id="labor" placeholder="25" oninput="calculate()">
+            </div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:4px;" data-key="laborHint">* اسأل البائع عن سعر المصنعية</div>
+        </div>
+
+        <div class="input-group">
+            <label data-key="discount">خصم</label>
+            <div class="input-box">
+                <input type="number" id="discount" placeholder="0" oninput="calculate()">
+            </div>
+        </div>
+
+        <div class="toggle-wrap">
+            <span data-key="vat">ضريبة (15%)</span>
+            <label class="switch">
+                <input type="checkbox" id="vatToggle" checked onchange="calculate()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="result-box">
+            <div class="line">
+                <span data-key="goldCost">سعر الذهب</span>
+                <span id="txtGold">0.00</span>
+            </div>
+            <div class="line">
+                <span data-key="laborCost">المصنعية</span>
+                <span id="txtLabor">0.00</span>
+            </div>
+            <div class="line" id="rowVat">
+                <span data-key="vatCost">الضريبة</span>
+                <span id="txtVat">0.00</span>
+            </div>
+            <div class="line hidden" id="rowDisc">
+                <span style="color:#ef4444" data-key="discCost">الخصم</span>
+                <span style="color:#ef4444" id="txtDisc">0.00</span>
+            </div>
+            <div class="line final">
+                <span data-key="total">الإجمالي</span>
+                <span id="txtTotal">0.00 SAR</span>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-head">
+                <span data-key="monthTrend">سعر العيار خلال آخر 30 يوم</span>
+                <span id="chartKaratLabel">21K</span>
+            </div>
+            <div class="chart-wrap" id="chartWrap">
+                <svg id="chartSvg" viewBox="0 0 360 180" preserveAspectRatio="none"></svg>
+                <div class="chart-tooltip hidden" id="chartTooltip"></div>
+            </div>
+            <div class="chart-foot" id="chartMeta"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Live Data Endpoint (Public Widget Data) ---
+    // This fetches a JSON with global gold prices
+    const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
+    
+    // Constants
+    const OUNCE_TO_GRAM = 31.1035;
+    const SAR_PEG = 3.7504; // Official Peg
+    const HISTORY_KEY = 'gold_price_history_v1';
+    const HISTORY_API_CACHE_KEY = 'gold_history_api_cache_v1';
+    const HISTORY_ALPHA_API_KEY = 'V7836II53362TMNY'; // Replace with your free Alpha Vantage key for reliable history
+
+    let prices = { '24K': 0, '22K': 0, '21K': 0, '18K': 0 };
+    let selectedKarat = '21K';
+    let currentLang = 'ar';
+    let apiHistoryUSD = {};
+
+    // Text Resources
+    const text = {
+        ar: {
+            dir: 'rtl', langBtn: 'English', title: 'حاسبة الذهب',
+            chooseKarat: 'اختر العيار', weight: 'الوزن', labor: 'المصنعية (لـ 1 جرام)',
+            laborHint: '* يختلف حسب المحل والتصميم', discount: 'خصم إضافي',
+            vat: 'شامل الضريبة (15%)', goldCost: 'قيمة الذهب', laborCost: 'قيمة المصنعية',
+            vatCost: 'الضريبة (15%)', discCost: 'قيمة الخصم', total: 'الإجمالي',
+            refresh: 'تحديث الأسعار', loading: 'جاري التحميل...', error: 'خطأ في الاتصال',
+            monthTrend: 'سعر العيار خلال آخر 30 يوم',
+            chartLoading: 'جاري تحميل سجل الأسعار الحقيقي...',
+            chartNoData: 'لا توجد بيانات تاريخية حقيقية كافية لآخر 30 يوم.',
+            chartRealOnly: 'الرسم يعرض بيانات حقيقية فقط (بدون أي تقدير).',
+            chartApiRate: 'قد تتوقف القراءة مؤقتًا بسبب حد الطلبات المجاني من Alpha Vantage.',
+            chartSourceApi: 'المصدر: Alpha Vantage',
+            chartSourceLocal: 'مع دعم الأيام المحفوظة محليًا فقط عند غياب يوم من المزود.'
+        },
+        en: {
+            dir: 'ltr', langBtn: 'عربي', title: 'Gold Calculator',
+            chooseKarat: 'Select Karat', weight: 'Weight (Grams)', labor: 'Labor Fee (per gram)',
+            laborHint: '* Varies by shop and design', discount: 'Discount',
+            vat: 'Include VAT (15%)', goldCost: 'Gold Price', laborCost: 'Labor Cost',
+            vatCost: 'VAT (15%)', discCost: 'Discount', total: 'Total Amount',
+            refresh: 'Refresh Prices', loading: 'Loading...', error: 'Connection Error',
+            monthTrend: 'Selected Karat Price - Last 30 Days',
+            chartLoading: 'Loading real historical prices...',
+            chartNoData: 'Not enough real historical data for the last 30 days.',
+            chartRealOnly: 'Chart shows real data only (no estimated points).',
+            chartApiRate: 'History may pause due to Alpha Vantage free-tier rate limits.',
+            chartSourceApi: 'Source: Alpha Vantage',
+            chartSourceLocal: 'Plus locally saved real days when provider dates are missing.'
+        }
+    };
+
+    function init() {
+        updateLangUI();
+        fetchLivePrice();
+    }
+
+    function toggleLang() {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        updateLangUI();
+        renderKarats();
+        calculate();
+        renderHistoryChart();
+    }
+
+    function updateLangUI() {
+        const t = text[currentLang];
+        document.documentElement.dir = t.dir;
+        document.querySelector('.lang-btn').innerText = t.langBtn;
+        document.getElementById('refreshBtn').innerText = t.refresh;
+        
+        // Update all data-keys
+        document.querySelectorAll('[data-key]').forEach(el => {
+            el.innerText = t[el.getAttribute('data-key')];
+        });
+    }
+
+    // --- The Core: Fetch Real Data ---
+    async function fetchLivePrice() {
+        const btn = document.getElementById('refreshBtn');
+        const status = document.getElementById('marketStatus');
+        
+        btn.innerText = text[currentLang].loading;
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            
+            // The API returns price per Ounce in USD. 
+            // We find "XAU" (Gold) in the items.
+            // Note: This specific endpoint usually returns items array.
+            // If fetching USD endpoint, items[0].xauPrice is USD/Ounce
+            
+            let priceInUSD_Ounce = 0;
+            
+            // Robust parsing logic
+            if (data.items && data.items.length > 0) {
+                 // Check if xauPrice exists in first item
+                 priceInUSD_Ounce = data.items[0].xauPrice;
+            }
+
+            if (priceInUSD_Ounce > 0) {
+                // 1. Convert Ounce USD -> Gram USD
+                const priceGramUSD = priceInUSD_Ounce / OUNCE_TO_GRAM;
+                
+                // 2. Convert Gram USD -> Gram SAR (24K)
+                const priceGramSAR_24K = priceGramUSD * SAR_PEG;
+
+                // 3. Calculate Karats
+                prices['24K'] = priceGramSAR_24K;
+                prices['22K'] = priceGramSAR_24K * 0.9167;
+                prices['21K'] = priceGramSAR_24K * 0.875;
+                prices['18K'] = priceGramSAR_24K * 0.750;
+                storeTodayHistory();
+
+                status.innerText = "● Live: " + priceInUSD_Ounce.toFixed(2) + " USD/oz";
+                status.style.color = "#4ade80"; // Green
+            } else {
+                throw new Error("Invalid Data");
+            }
+
+        } catch (error) {
+            console.error(error);
+            status.innerText = "● Offline (Est.)";
+            status.style.color = "#ef4444";
+            // Fallback prices if API fails
+            if(prices['24K'] === 0) {
+                 prices = { '24K': 315, '22K': 289, '21K': 276, '18K': 236 }; 
+            }
+        }
+
+        await fetchHistoryData();
+        btn.innerText = text[currentLang].refresh;
+        btn.disabled = false;
+        renderKarats();
+        calculate();
+        renderHistoryChart();
+    }
+
+    function renderKarats() {
+        const container = document.getElementById('karatContainer');
+        container.innerHTML = '';
+        
+        Object.keys(prices).forEach(key => {
+            const div = document.createElement('div');
+            div.className = `k-btn ${key === selectedKarat ? 'active' : ''}`;
+            div.onclick = () => { selectedKarat = key; renderKarats(); calculate(); renderHistoryChart(); };
+            
+            let label = key;
+            if(currentLang === 'ar') label = key.replace('K', '') + ' عيار';
+            
+            div.innerHTML = `
+                <span class="k-label">${label}</span>
+                <span class="k-price">${prices[key].toFixed(3)}</span>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function calculate() {
+        const w = parseFloat(document.getElementById('weight').value) || 0;
+        const labor = parseFloat(document.getElementById('labor').value) || 0;
+        const disc = parseFloat(document.getElementById('discount').value) || 0;
+        const vatOn = document.getElementById('vatToggle').checked;
+
+        const goldPrice = prices[selectedKarat] * w;
+        const laborPrice = labor * w;
+        const subtotal = goldPrice + laborPrice;
+        
+        const vat = vatOn ? subtotal * 0.15 : 0;
+        const total = subtotal + vat - disc;
+
+        // UI Updates
+        document.getElementById('txtGold').innerText = format(goldPrice);
+        document.getElementById('txtLabor').innerText = format(laborPrice);
+        
+        const vatRow = document.getElementById('rowVat');
+        if(vatOn) {
+            vatRow.style.opacity = '1';
+            document.getElementById('txtVat').innerText = format(vat);
+        } else {
+            vatRow.style.opacity = '0.3';
+            document.getElementById('txtVat').innerText = '0.00';
+        }
+
+        const discRow = document.getElementById('rowDisc');
+        if(disc > 0) {
+            discRow.classList.remove('hidden');
+            document.getElementById('txtDisc').innerText = '-' + format(disc);
+        } else {
+            discRow.classList.add('hidden');
+        }
+
+        document.getElementById('txtTotal').innerText = format(total) + " SAR";
+    }
+
+    function format(num) {
+        return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function formatPrice(num) {
+        return num.toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+    }
+
+    function getHistoryStore() {
+        try {
+            const raw = localStorage.getItem(HISTORY_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function saveHistoryStore(store) {
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(store));
+        } catch (_) {
+            // Ignore storage quota errors silently
+        }
+    }
+
+    function storeTodayHistory() {
+        const today = new Date().toISOString().slice(0, 10);
+        const store = getHistoryStore();
+        store[today] = {
+            '24K': prices['24K'],
+            '22K': prices['22K'],
+            '21K': prices['21K'],
+            '18K': prices['18K']
+        };
+
+        const keys = Object.keys(store).sort();
+        if (keys.length > 45) {
+            keys.slice(0, keys.length - 45).forEach(k => delete store[k]);
+        }
+        saveHistoryStore(store);
+    }
+
+    function karatFactor(karat) {
+        if (karat === '24K') return 1;
+        if (karat === '22K') return 0.9167;
+        if (karat === '21K') return 0.875;
+        if (karat === '18K') return 0.75;
+        return 1;
+    }
+
+    function usdOzToSarGramKarat(usdOz, karat) {
+        const gramUSD = usdOz / OUNCE_TO_GRAM;
+        const gramSAR24 = gramUSD * SAR_PEG;
+        return gramSAR24 * karatFactor(karat);
+    }
+
+    function readApiHistoryCache() {
+        try {
+            const raw = localStorage.getItem(HISTORY_API_CACHE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || !parsed.data) return null;
+            return parsed;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writeApiHistoryCache(data) {
+        try {
+            localStorage.setItem(HISTORY_API_CACHE_KEY, JSON.stringify({
+                fetchedAt: Date.now(),
+                data
+            }));
+        } catch (_) {
+            // Ignore localStorage write issues
+        }
+    }
+
+    function getNumericFromObj(obj) {
+        if (!obj || typeof obj !== 'object') return null;
+        const keys = ['price', 'value', 'close', '4. close', 'xauPrice', 'gold'];
+        for (const key of keys) {
+            const num = parseFloat(obj[key]);
+            if (Number.isFinite(num) && num > 0) return num;
+        }
+        for (const key of Object.keys(obj)) {
+            const num = parseFloat(obj[key]);
+            if (Number.isFinite(num) && num > 0) return num;
+        }
+        return null;
+    }
+
+    function normalizeAlphaHistory(payload) {
+        const out = {};
+        const tryObjectMap = (obj) => {
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+            Object.entries(obj).forEach(([dateKey, value]) => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+                const num = typeof value === 'number' ? value : getNumericFromObj(value);
+                if (Number.isFinite(num) && num > 0) out[dateKey] = num;
+            });
+        };
+        const tryArray = (arr) => {
+            if (!Array.isArray(arr)) return;
+            arr.forEach(row => {
+                const dateKey = row?.date || row?.timestamp || row?.time;
+                if (!dateKey) return;
+                const normalizedDate = String(dateKey).slice(0, 10);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) return;
+                const num = typeof row === 'number' ? row : getNumericFromObj(row);
+                if (Number.isFinite(num) && num > 0) out[normalizedDate] = num;
+            });
+        };
+
+        tryObjectMap(payload?.['Time Series (Daily)']);
+        tryObjectMap(payload?.['time series']);
+        tryObjectMap(payload?.['time_series']);
+        tryObjectMap(payload?.data);
+        tryArray(payload?.data);
+        tryArray(payload?.prices);
+        tryArray(payload?.historical);
+        tryArray(payload?.['time series']);
+
+        return out;
+    }
+
+    async function fetchHistoryData() {
+        const meta = document.getElementById('chartMeta');
+        const t = text[currentLang];
+        meta.innerText = t.chartLoading;
+
+        const cache = readApiHistoryCache();
+        const sixHours = 6 * 60 * 60 * 1000;
+        if (cache && cache.fetchedAt && (Date.now() - cache.fetchedAt) < sixHours) {
+            apiHistoryUSD = cache.data || {};
+            return;
+        }
+
+        try {
+            const endpoint = new URL('https://www.alphavantage.co/query');
+            endpoint.searchParams.set('function', 'GOLD_SILVER_HISTORY');
+            endpoint.searchParams.set('symbol', 'XAU');
+            endpoint.searchParams.set('market', 'USD');
+            endpoint.searchParams.set('interval', 'daily');
+            endpoint.searchParams.set('apikey', HISTORY_ALPHA_API_KEY);
+
+            const response = await fetch(endpoint.toString());
+            const payload = await response.json();
+
+            if (payload?.Note || payload?.Information || payload?.Error_Message) {
+                throw new Error('History rate-limited or unavailable');
+            }
+
+            const normalized = normalizeAlphaHistory(payload);
+            if (!Object.keys(normalized).length) {
+                throw new Error('No parseable history data');
+            }
+
+            apiHistoryUSD = normalized;
+            writeApiHistoryCache(normalized);
+        } catch (err) {
+            console.warn(err);
+            apiHistoryUSD = cache?.data || {};
+        }
+    }
+
+    function buildLastMonthSeries(karat) {
+        const store = getHistoryStore();
+        const out = [];
+        let apiCount = 0;
+        let localCount = 0;
+
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateKey = d.toISOString().slice(0, 10);
+
+            let value = null;
+            let source = 'none';
+
+            const usdOz = parseFloat(apiHistoryUSD[dateKey]);
+            if (Number.isFinite(usdOz) && usdOz > 0) {
+                value = usdOzToSarGramKarat(usdOz, karat);
+                source = 'api';
+                apiCount++;
+            } else if (store[dateKey] && Number.isFinite(store[dateKey][karat]) && store[dateKey][karat] > 0) {
+                value = store[dateKey][karat];
+                source = 'local';
+                localCount++;
+            }
+
+            if (i === 0 && prices[karat] > 0) {
+                value = prices[karat];
+                source = 'live';
+            }
+
+            out.push({
+                date: dateKey,
+                value,
+                source
+            });
+        }
+
+        return { points: out, apiCount, localCount };
+    }
+
+    function renderHistoryChart() {
+        const svg = document.getElementById('chartSvg');
+        const tooltip = document.getElementById('chartTooltip');
+        const label = document.getElementById('chartKaratLabel');
+        const meta = document.getElementById('chartMeta');
+        const t = text[currentLang];
+        const width = 360;
+        const height = 180;
+        const padding = 16;
+
+        label.innerText = selectedKarat;
+
+        const series = buildLastMonthSeries(selectedKarat);
+        const values = series.points.map(p => p.value).filter(v => Number.isFinite(v) && v > 0);
+        if (!values.length) {
+            svg.innerHTML = '';
+            meta.innerText = t.chartNoData;
+            tooltip.classList.add('hidden');
+            return;
+        }
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = Math.max(1, max - min);
+        const chartTopPad = 16;
+        const chartBottomPad = 30;
+        const plotHeight = height - chartTopPad - chartBottomPad;
+        const scaleX = (i) => padding + (i / (series.points.length - 1)) * (width - padding * 2);
+        const scaleY = (v) => (height - chartBottomPad) - ((v - min) / range) * plotHeight;
+
+        const pathParts = [];
+        let activeSegment = [];
+        series.points.forEach((p, i) => {
+            if (Number.isFinite(p.value) && p.value > 0) {
+                activeSegment.push([scaleX(i), scaleY(p.value)]);
+            } else if (activeSegment.length) {
+                pathParts.push(activeSegment);
+                activeSegment = [];
+            }
+        });
+        if (activeSegment.length) pathParts.push(activeSegment);
+        const path = pathParts.map(seg => seg.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt[0].toFixed(2)} ${pt[1].toFixed(2)}`).join(' ')).join(' ');
+        const grid = [0, 1, 2, 3].map(i => {
+            const y = chartTopPad + (i * plotHeight / 3);
+            return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="#e2e8f0" stroke-width="1" />`;
+        }).join('');
+
+        const xAxisY = height - chartBottomPad;
+        const xTicks = [0, 7, 14, 21, 29];
+        const locale = currentLang === 'ar' ? 'ar-SA' : 'en-US';
+        const xAxis = `
+            <line x1="${padding}" y1="${xAxisY}" x2="${width - padding}" y2="${xAxisY}" stroke="#cbd5e1" stroke-width="1.2" />
+            ${xTicks.map(idx => {
+                const x = scaleX(idx);
+                const date = new Date(series.points[idx].date + "T00:00:00");
+                const label = date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+                return `
+                    <line x1="${x}" y1="${xAxisY}" x2="${x}" y2="${xAxisY + 5}" stroke="#94a3b8" stroke-width="1" />
+                    <text x="${x}" y="${xAxisY + 16}" fill="#64748b" font-size="9" text-anchor="middle">${label}</text>
+                `;
+            }).join('')}
+        `;
+
+        const visiblePoints = series.points.map((p, i) => {
+            if (!Number.isFinite(p.value) || p.value <= 0) return '';
+            const x = scaleX(i);
+            const y = scaleY(p.value);
+            const pointColor = p.source === 'api' ? '#d4af37' : (p.source === 'live' ? '#10b981' : '#64748b');
+            return `<circle cx="${x}" cy="${y}" r="2.4" fill="${pointColor}" />`;
+        }).join('');
+
+        const hitPoints = series.points.map((p, i) => {
+            if (!Number.isFinite(p.value) || p.value <= 0) return '';
+            const x = scaleX(i);
+            const y = scaleY(p.value);
+            return `<circle class="hit-point" data-idx="${i}" cx="${x}" cy="${y}" r="9" fill="transparent" style="cursor:pointer;" />`;
+        }).join('');
+
+        const lastIdx = [...series.points.keys()].reverse().find(i => Number.isFinite(series.points[i].value) && series.points[i].value > 0);
+        const last = lastIdx >= 0 ? series.points[lastIdx] : null;
+        const lx = last ? scaleX(lastIdx) : 0;
+        const ly = last ? scaleY(last.value) : 0;
+        const latestLabel = `
+            <g>
+                ${last ? `<rect x="${Math.max(padding, lx - 42)}" y="${Math.max(4, ly - 28)}" width="84" height="20" rx="10" fill="#0f172a" />` : ''}
+                ${last ? `<text x="${lx}" y="${Math.max(18, ly - 14)}" fill="#ffffff" font-size="10" text-anchor="middle">${formatPrice(last.value)} SAR</text>` : ''}
+            </g>
+        `;
+
+        svg.innerHTML = `
+            ${grid}
+            ${xAxis}
+            <path d="${path}" fill="none" stroke="#d4af37" stroke-width="2.5" />
+            ${visiblePoints}
+            ${latestLabel}
+            ${hitPoints}
+        `;
+
+        const chartWrap = document.getElementById('chartWrap');
+        const showTooltip = (idx) => {
+            const p = series.points[idx];
+            if (!Number.isFinite(p.value) || p.value <= 0) return;
+            const x = scaleX(idx);
+            const y = scaleY(p.value);
+            const lang = currentLang === 'ar' ? 'ar-SA' : 'en-US';
+            const dateLabel = new Date(p.date + "T00:00:00").toLocaleDateString(lang, { month: 'short', day: 'numeric' });
+            tooltip.innerText = `${dateLabel} | ${formatPrice(p.value)} SAR`;
+            tooltip.style.left = `${(x / width) * chartWrap.clientWidth}px`;
+            tooltip.style.top = `${(y / height) * chartWrap.clientHeight}px`;
+            tooltip.classList.remove('hidden');
+        };
+
+        svg.querySelectorAll('.hit-point').forEach(el => {
+            el.addEventListener('mouseenter', () => showTooltip(parseInt(el.dataset.idx, 10)));
+            el.addEventListener('mousemove', () => showTooltip(parseInt(el.dataset.idx, 10)));
+            el.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+        });
+
+        const sourceParts = [t.chartRealOnly];
+        if (series.apiCount > 0) sourceParts.push(t.chartSourceApi);
+        if (series.localCount > 0) sourceParts.push(t.chartSourceLocal);
+        if (series.apiCount === 0) sourceParts.push(t.chartApiRate);
+        meta.innerText = sourceParts.join(' ');
+    }
+
+    init();
+</script>
+
+</body>
+</html>
