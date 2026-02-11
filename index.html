@@ -293,6 +293,7 @@
     // --- Live Data Endpoint (Public Widget Data) ---
     // This fetches a JSON with global gold prices
     const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
+    const API_PROXY_URL = "https://api.allorigins.win/raw?url=";
     
     // Constants
     const OUNCE_TO_GRAM = 31.1035;
@@ -366,6 +367,45 @@
     }
 
     // --- The Core: Fetch Real Data ---
+    async function fetchJsonWithTimeout(url, timeoutMs = 12000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    function parseUSDGoldOunce(data) {
+        let priceInUSD_Ounce = 0;
+        if (data?.items && data.items.length > 0 && Number.isFinite(parseFloat(data.items[0].xauPrice))) {
+            priceInUSD_Ounce = parseFloat(data.items[0].xauPrice);
+        }
+        if (priceInUSD_Ounce > 0) return priceInUSD_Ounce;
+        return 0;
+    }
+
+    async function fetchLiveUSDGoldOunce() {
+        // 1) Direct endpoint
+        try {
+            const directData = await fetchJsonWithTimeout(API_URL);
+            const directPrice = parseUSDGoldOunce(directData);
+            if (directPrice > 0) return directPrice;
+        } catch (_) {}
+
+        // 2) CORS proxy fallback (helps on GitHub Pages when origin is blocked)
+        try {
+            const proxiedData = await fetchJsonWithTimeout(API_PROXY_URL + encodeURIComponent(API_URL));
+            const proxiedPrice = parseUSDGoldOunce(proxiedData);
+            if (proxiedPrice > 0) return proxiedPrice;
+        } catch (_) {}
+
+        throw new Error("Live source unavailable");
+    }
+
     async function fetchLivePrice() {
         const btn = document.getElementById('refreshBtn');
         const status = document.getElementById('marketStatus');
@@ -374,21 +414,7 @@
         btn.disabled = true;
 
         try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-            
-            // The API returns price per Ounce in USD. 
-            // We find "XAU" (Gold) in the items.
-            // Note: This specific endpoint usually returns items array.
-            // If fetching USD endpoint, items[0].xauPrice is USD/Ounce
-            
-            let priceInUSD_Ounce = 0;
-            
-            // Robust parsing logic
-            if (data.items && data.items.length > 0) {
-                 // Check if xauPrice exists in first item
-                 priceInUSD_Ounce = data.items[0].xauPrice;
-            }
+            const priceInUSD_Ounce = await fetchLiveUSDGoldOunce();
 
             if (priceInUSD_Ounce > 0) {
                 // 1. Convert Ounce USD -> Gram USD
