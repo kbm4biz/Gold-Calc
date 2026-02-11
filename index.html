@@ -225,14 +225,14 @@
         <div class="input-group">
             <label data-key="weight">الوزن (جرام)</label>
             <div class="input-box">
-                <input type="number" id="weight" placeholder="0.00" oninput="calculate()">
+                <input type="number" id="weight" inputmode="decimal" enterkeyhint="done" placeholder="0.00" oninput="calculate()">
             </div>
         </div>
 
         <div class="input-group">
             <label data-key="labor">المصنعية (ريال/جرام)</label>
             <div class="input-box">
-                <input type="number" id="labor" placeholder="25" oninput="calculate()">
+                <input type="number" id="labor" inputmode="decimal" enterkeyhint="done" placeholder="25" oninput="calculate()">
             </div>
             <div style="font-size:0.75rem; color:#64748b; margin-top:4px;" data-key="laborHint">* اسأل البائع عن سعر المصنعية</div>
         </div>
@@ -240,7 +240,7 @@
         <div class="input-group">
             <label data-key="discount">خصم</label>
             <div class="input-box">
-                <input type="number" id="discount" placeholder="0" oninput="calculate()">
+                <input type="number" id="discount" inputmode="decimal" enterkeyhint="done" placeholder="0" oninput="calculate()">
             </div>
         </div>
 
