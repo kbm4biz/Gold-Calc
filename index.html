@@ -90,6 +90,20 @@
         }
         .k-label { font-weight: 700; font-size: 0.9rem; display: block; }
         .k-price { font-size: 0.8rem; color: #64748b; margin-top: 2px; display: block; }
+        .k-price-input {
+            width: 100%;
+            margin-top: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px 4px;
+            font-size: 0.82rem;
+            text-align: center;
+            background: #fff;
+        }
+        .k-btn.manual {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
 
         /* Inputs */
         .input-group { margin-bottom: 15px; }
@@ -220,7 +234,7 @@
         <label style="font-size:0.9rem; font-weight:600; margin-bottom:8px; display:block;" data-key="chooseKarat">اختر العيار</label>
         <div class="karat-grid" id="karatContainer"></div>
 
-        <button class="btn-refresh" onclick="fetchLivePrice()" id="refreshBtn">تحديث الأسعار الآن</button>
+        <button class="btn-refresh" onclick="refreshOfficialPrices()" id="refreshBtn">تحديث الأسعار الآن</button>
 
         <div class="input-group">
             <label data-key="weight">الوزن (جرام)</label>
@@ -294,6 +308,7 @@
     // This fetches a JSON with global gold prices
     const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
     const API_PROXY_URL = "https://api.allorigins.win/raw?url=";
+    const API_PROXY_URL_2 = "https://thingproxy.freeboard.io/fetch/";
     const ALPHA_BASE_URL = "https://www.alphavantage.co/query";
     
     // Constants
@@ -301,12 +316,16 @@
     const SAR_PEG = 3.7504; // Official Peg
     const HISTORY_KEY = 'gold_price_history_v1';
     const HISTORY_API_CACHE_KEY = 'gold_history_api_cache_v1';
+    const LIVE_PRICE_CACHE_KEY = 'gold_live_price_cache_v1';
+    const PRICE_OVERRIDES_KEY = 'gold_manual_price_overrides_v1';
     const HISTORY_ALPHA_API_KEY = 'V7836II53362TMNY'; // Replace with your free Alpha Vantage key for reliable history
 
     let prices = { '24K': 0, '22K': 0, '21K': 0, '18K': 0 };
+    let manualOverrides = { '24K': null, '22K': null, '21K': null, '18K': null };
     let selectedKarat = '21K';
     let currentLang = 'ar';
     let apiHistoryUSD = {};
+    let liveFetchInProgress = false;
 
     // Text Resources
     const text = {
@@ -343,8 +362,11 @@
     };
 
     function init() {
+        loadPriceOverrides();
         updateLangUI();
         fetchLivePrice();
+        window.addEventListener('online', () => fetchLivePrice());
+        setInterval(() => fetchLivePrice({ silent: true }), 3 * 60 * 1000);
     }
 
     function toggleLang() {
@@ -380,6 +402,19 @@
         }
     }
 
+    async function fetchJsonWithRetry(url, attempts = 2, timeoutMs = 12000) {
+        let lastError = null;
+        for (let i = 0; i < attempts; i++) {
+            try {
+                return await fetchJsonWithTimeout(url, timeoutMs);
+            } catch (err) {
+                lastError = err;
+                await new Promise(resolve => setTimeout(resolve, 250 * (i + 1)));
+            }
+        }
+        throw lastError || new Error("Request failed");
+    }
+
     function parseUSDGoldOunce(data) {
         let priceInUSD_Ounce = 0;
         if (data?.items && data.items.length > 0 && Number.isFinite(parseFloat(data.items[0].xauPrice))) {
@@ -394,6 +429,85 @@
         const rate = parseFloat(data?.["Realtime Currency Exchange Rate"]?.["5. Exchange Rate"]);
         if (Number.isFinite(rate) && rate > 0) return rate;
         return 0;
+    }
+
+    function readLiveCache() {
+        try {
+            const raw = localStorage.getItem(LIVE_PRICE_CACHE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+            if (!Number.isFinite(parsed.usdOz) || parsed.usdOz <= 0) return null;
+            if (!Number.isFinite(parsed.fetchedAt)) return null;
+            return parsed;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writeLiveCache(usdOz, source) {
+        try {
+            localStorage.setItem(LIVE_PRICE_CACHE_KEY, JSON.stringify({
+                usdOz,
+                source: source || 'unknown',
+                fetchedAt: Date.now()
+            }));
+        } catch (_) {
+            // Ignore localStorage write issues
+        }
+    }
+
+    function loadPriceOverrides() {
+        try {
+            const raw = localStorage.getItem(PRICE_OVERRIDES_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            ['24K', '22K', '21K', '18K'].forEach(k => {
+                const v = parseFloat(parsed?.[k]);
+                manualOverrides[k] = Number.isFinite(v) && v > 0 ? v : null;
+            });
+        } catch (_) {
+            // Ignore bad cache payload
+        }
+    }
+
+    function savePriceOverrides() {
+        try {
+            localStorage.setItem(PRICE_OVERRIDES_KEY, JSON.stringify(manualOverrides));
+        } catch (_) {
+            // Ignore localStorage write issues
+        }
+    }
+
+    function clearPriceOverrides() {
+        manualOverrides = { '24K': null, '22K': null, '21K': null, '18K': null };
+        try {
+            localStorage.removeItem(PRICE_OVERRIDES_KEY);
+        } catch (_) {
+            // Ignore localStorage issues
+        }
+    }
+
+    function refreshOfficialPrices() {
+        clearPriceOverrides();
+        renderKarats();
+        calculate();
+        fetchLivePrice();
+    }
+
+    function getEffectiveKaratPrice(karat) {
+        const manual = parseFloat(manualOverrides[karat]);
+        if (Number.isFinite(manual) && manual > 0) return manual;
+        return prices[karat] || 0;
+    }
+
+    function applyUsdOzToKaratPrices(priceInUSD_Ounce) {
+        const priceGramUSD = priceInUSD_Ounce / OUNCE_TO_GRAM;
+        const priceGramSAR_24K = priceGramUSD * SAR_PEG;
+        prices['24K'] = priceGramSAR_24K;
+        prices['22K'] = priceGramSAR_24K * 0.9167;
+        prices['21K'] = priceGramSAR_24K * 0.875;
+        prices['18K'] = priceGramSAR_24K * 0.750;
     }
 
     async function fetchAlphaLiveUSDGoldOunce() {
@@ -412,52 +526,56 @@
     }
 
     async function fetchLiveUSDGoldOunce() {
-        // 1) Alpha Vantage first (same provider as history, better consistency)
+        // 1) Direct endpoint first (fastest and no API key dependency)
+        try {
+            const directData = await fetchJsonWithRetry(API_URL, 2, 9000);
+            const directPrice = parseUSDGoldOunce(directData);
+            if (directPrice > 0) return { price: directPrice, source: 'direct' };
+        } catch (_) {}
+
+        // 2) CORS proxy fallback #1
+        try {
+            const proxiedData = await fetchJsonWithRetry(API_PROXY_URL + encodeURIComponent(API_URL), 2, 10000);
+            const proxiedPrice = parseUSDGoldOunce(proxiedData);
+            if (proxiedPrice > 0) return { price: proxiedPrice, source: 'proxy1' };
+        } catch (_) {}
+
+        // 3) CORS proxy fallback #2
+        try {
+            const proxiedData2 = await fetchJsonWithRetry(API_PROXY_URL_2 + API_URL, 2, 10000);
+            const proxiedPrice2 = parseUSDGoldOunce(proxiedData2);
+            if (proxiedPrice2 > 0) return { price: proxiedPrice2, source: 'proxy2' };
+        } catch (_) {}
+
+        // 4) Alpha Vantage last, because free-tier reliability is inconsistent
         try {
             const alphaPrice = await fetchAlphaLiveUSDGoldOunce();
-            if (alphaPrice > 0) return alphaPrice;
-        } catch (_) {}
-
-        // 2) Direct endpoint fallback
-        try {
-            const directData = await fetchJsonWithTimeout(API_URL);
-            const directPrice = parseUSDGoldOunce(directData);
-            if (directPrice > 0) return directPrice;
-        } catch (_) {}
-
-        // 3) CORS proxy fallback (helps on GitHub Pages when origin is blocked)
-        try {
-            const proxiedData = await fetchJsonWithTimeout(API_PROXY_URL + encodeURIComponent(API_URL));
-            const proxiedPrice = parseUSDGoldOunce(proxiedData);
-            if (proxiedPrice > 0) return proxiedPrice;
+            if (alphaPrice > 0) return { price: alphaPrice, source: 'alpha' };
         } catch (_) {}
 
         throw new Error("Live source unavailable");
     }
 
-    async function fetchLivePrice() {
+    async function fetchLivePrice(options = {}) {
+        if (liveFetchInProgress) return;
+        liveFetchInProgress = true;
         const btn = document.getElementById('refreshBtn');
         const status = document.getElementById('marketStatus');
+        const silent = Boolean(options.silent);
         
-        btn.innerText = text[currentLang].loading;
-        btn.disabled = true;
+        if (!silent) {
+            btn.innerText = text[currentLang].loading;
+            btn.disabled = true;
+        }
 
         try {
-            const priceInUSD_Ounce = await fetchLiveUSDGoldOunce();
+            const live = await fetchLiveUSDGoldOunce();
+            const priceInUSD_Ounce = live.price;
 
             if (priceInUSD_Ounce > 0) {
-                // 1. Convert Ounce USD -> Gram USD
-                const priceGramUSD = priceInUSD_Ounce / OUNCE_TO_GRAM;
-                
-                // 2. Convert Gram USD -> Gram SAR (24K)
-                const priceGramSAR_24K = priceGramUSD * SAR_PEG;
-
-                // 3. Calculate Karats
-                prices['24K'] = priceGramSAR_24K;
-                prices['22K'] = priceGramSAR_24K * 0.9167;
-                prices['21K'] = priceGramSAR_24K * 0.875;
-                prices['18K'] = priceGramSAR_24K * 0.750;
+                applyUsdOzToKaratPrices(priceInUSD_Ounce);
                 storeTodayHistory();
+                writeLiveCache(priceInUSD_Ounce, live.source);
 
                 status.innerText = "● Live: " + priceInUSD_Ounce.toFixed(2) + " USD/oz";
                 status.style.color = "#4ade80"; // Green
@@ -467,16 +585,30 @@
 
         } catch (error) {
             console.error(error);
-            status.innerText = "● Offline (Est.)";
-            status.style.color = "#ef4444";
-            // Fallback prices if API fails
-            if(prices['24K'] === 0) {
-                 prices = { '24K': 315, '22K': 289, '21K': 276, '18K': 236 }; 
+            const cached = readLiveCache();
+            const maxCacheAgeMs = 24 * 60 * 60 * 1000;
+            if (cached && (Date.now() - cached.fetchedAt) <= maxCacheAgeMs) {
+                applyUsdOzToKaratPrices(cached.usdOz);
+                storeTodayHistory();
+                const ageMinutes = Math.max(1, Math.round((Date.now() - cached.fetchedAt) / 60000));
+                status.innerText = `● Cached (${ageMinutes}m): ${cached.usdOz.toFixed(2)} USD/oz`;
+                status.style.color = "#f59e0b";
+            } else {
+                status.innerText = "● Offline (Est.)";
+                status.style.color = "#ef4444";
+                // Fallback prices if API fails and there is no fresh cache
+                if(prices['24K'] === 0) {
+                     prices = { '24K': 315, '22K': 289, '21K': 276, '18K': 236 }; 
+                }
             }
+        } finally {
+            if (!silent) {
+                btn.innerText = text[currentLang].refresh;
+                btn.disabled = false;
+            }
+            liveFetchInProgress = false;
         }
-
-        btn.innerText = text[currentLang].refresh;
-        btn.disabled = false;
+        
         renderKarats();
         calculate();
 
@@ -492,7 +624,8 @@
         
         Object.keys(prices).forEach(key => {
             const div = document.createElement('div');
-            div.className = `k-btn ${key === selectedKarat ? 'active' : ''}`;
+            const hasManual = Number.isFinite(parseFloat(manualOverrides[key])) && parseFloat(manualOverrides[key]) > 0;
+            div.className = `k-btn ${key === selectedKarat ? 'active' : ''} ${hasManual ? 'manual' : ''}`;
             div.onclick = () => { selectedKarat = key; renderKarats(); calculate(); renderHistoryChart(); };
             
             let label = key;
@@ -500,9 +633,23 @@
             
             div.innerHTML = `
                 <span class="k-label">${label}</span>
-                <span class="k-price">${prices[key].toFixed(3)}</span>
+                <input class="k-price-input" data-karat="${key}" type="number" step="0.001" min="0" value="${formatPrice(getEffectiveKaratPrice(key))}">
             `;
             container.appendChild(div);
+
+            const input = div.querySelector('.k-price-input');
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('keydown', (e) => e.stopPropagation());
+            input.addEventListener('input', () => {
+                const v = parseFloat(input.value);
+                manualOverrides[key] = Number.isFinite(v) && v > 0 ? v : null;
+                savePriceOverrides();
+                calculate();
+            });
+            input.addEventListener('change', () => {
+                renderKarats();
+                renderHistoryChart();
+            });
         });
     }
 
@@ -512,7 +659,7 @@
         const disc = parseFloat(document.getElementById('discount').value) || 0;
         const vatOn = document.getElementById('vatToggle').checked;
 
-        const goldPrice = prices[selectedKarat] * w;
+        const goldPrice = getEffectiveKaratPrice(selectedKarat) * w;
         const laborPrice = labor * w;
         const subtotal = goldPrice + laborPrice;
         
