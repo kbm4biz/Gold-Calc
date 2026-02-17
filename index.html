@@ -308,6 +308,7 @@
     // This fetches a JSON with global gold prices
     const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
     const API_PROXY_URL = "https://api.allorigins.win/raw?url=";
+    const COINGECKO_GOLD_URL = "https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold&vs_currencies=usd";
     const ALPHA_BASE_URL = "https://www.alphavantage.co/query";
     
     // Constants
@@ -393,7 +394,11 @@
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const response = await fetch(url, { signal: controller.signal });
+            const response = await fetch(url, {
+                signal: controller.signal,
+                cache: 'no-store',
+                mode: 'cors'
+            });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return await response.json();
         } finally {
@@ -428,6 +433,45 @@
         const rate = parseFloat(data?.["Realtime Currency Exchange Rate"]?.["5. Exchange Rate"]);
         if (Number.isFinite(rate) && rate > 0) return rate;
         return 0;
+    }
+
+    function parseCoinGeckoUsdGoldOunce(data) {
+        const paxg = parseFloat(data?.['pax-gold']?.usd);
+        const xaut = parseFloat(data?.['tether-gold']?.usd);
+        const values = [paxg, xaut].filter(v => Number.isFinite(v) && v > 0);
+        if (!values.length) return 0;
+        return values.reduce((a, b) => a + b, 0) / values.length;
+    }
+
+    async function firstSuccessful(tasks, timeoutMs = 12000) {
+        return new Promise((resolve, reject) => {
+            let resolved = false;
+            let failedCount = 0;
+            const timer = setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                reject(new Error("Live sources timeout"));
+            }, timeoutMs);
+
+            tasks.forEach(task => {
+                Promise.resolve()
+                    .then(task)
+                    .then(result => {
+                        if (resolved) return;
+                        resolved = true;
+                        clearTimeout(timer);
+                        resolve(result);
+                    })
+                    .catch(() => {
+                        failedCount++;
+                        if (failedCount >= tasks.length && !resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            reject(new Error("Live source unavailable"));
+                        }
+                    });
+            });
+        });
     }
 
     function readLiveCache() {
@@ -533,6 +577,12 @@
                 throw new Error('Direct parse failed');
             },
             async () => {
+                const data = await fetchJsonWithRetry(COINGECKO_GOLD_URL, 1, 4500);
+                const price = parseCoinGeckoUsdGoldOunce(data);
+                if (price > 0) return { price, source: 'coingecko' };
+                throw new Error('CoinGecko parse failed');
+            },
+            async () => {
                 const data = await fetchJsonWithRetry(API_PROXY_URL + encodeURIComponent(API_URL), 1, 5000);
                 const price = parseUSDGoldOunce(data);
                 if (price > 0) return { price, source: 'proxy1' };
@@ -545,15 +595,8 @@
             }
         ];
 
-        const hardTimeout = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("Live sources timeout")), 12000);
-        });
-
         try {
-            return await Promise.race([
-                Promise.any(sources.map(run => run())),
-                hardTimeout
-            ]);
+            return await firstSuccessful(sources, 12000);
         } catch (_) {
             throw new Error("Live source unavailable");
         }
