@@ -308,7 +308,6 @@
     // This fetches a JSON with global gold prices
     const API_URL = "https://data-asg.goldprice.org/dbXRates/USD";
     const API_PROXY_URL = "https://api.allorigins.win/raw?url=";
-    const API_PROXY_URL_2 = "https://thingproxy.freeboard.io/fetch/";
     const ALPHA_BASE_URL = "https://www.alphavantage.co/query";
     
     // Constants
@@ -516,7 +515,7 @@
         endpoint.searchParams.set("from_currency", "XAU");
         endpoint.searchParams.set("to_currency", "USD");
         endpoint.searchParams.set("apikey", HISTORY_ALPHA_API_KEY);
-        const payload = await fetchJsonWithTimeout(endpoint.toString(), 10000);
+        const payload = await fetchJsonWithTimeout(endpoint.toString(), 5000);
         if (payload?.Note || payload?.Information || payload?.Error_Message) {
             throw new Error("Alpha Vantage live rate-limited/unavailable");
         }
@@ -526,34 +525,38 @@
     }
 
     async function fetchLiveUSDGoldOunce() {
-        // 1) Direct endpoint first (fastest and no API key dependency)
-        try {
-            const directData = await fetchJsonWithRetry(API_URL, 2, 9000);
-            const directPrice = parseUSDGoldOunce(directData);
-            if (directPrice > 0) return { price: directPrice, source: 'direct' };
-        } catch (_) {}
+        const sources = [
+            async () => {
+                const data = await fetchJsonWithRetry(API_URL, 1, 4500);
+                const price = parseUSDGoldOunce(data);
+                if (price > 0) return { price, source: 'direct' };
+                throw new Error('Direct parse failed');
+            },
+            async () => {
+                const data = await fetchJsonWithRetry(API_PROXY_URL + encodeURIComponent(API_URL), 1, 5000);
+                const price = parseUSDGoldOunce(data);
+                if (price > 0) return { price, source: 'proxy1' };
+                throw new Error('Proxy parse failed');
+            },
+            async () => {
+                const price = await fetchAlphaLiveUSDGoldOunce();
+                if (price > 0) return { price, source: 'alpha' };
+                throw new Error('Alpha parse failed');
+            }
+        ];
 
-        // 2) CORS proxy fallback #1
-        try {
-            const proxiedData = await fetchJsonWithRetry(API_PROXY_URL + encodeURIComponent(API_URL), 2, 10000);
-            const proxiedPrice = parseUSDGoldOunce(proxiedData);
-            if (proxiedPrice > 0) return { price: proxiedPrice, source: 'proxy1' };
-        } catch (_) {}
+        const hardTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("Live sources timeout")), 12000);
+        });
 
-        // 3) CORS proxy fallback #2
         try {
-            const proxiedData2 = await fetchJsonWithRetry(API_PROXY_URL_2 + API_URL, 2, 10000);
-            const proxiedPrice2 = parseUSDGoldOunce(proxiedData2);
-            if (proxiedPrice2 > 0) return { price: proxiedPrice2, source: 'proxy2' };
-        } catch (_) {}
-
-        // 4) Alpha Vantage last, because free-tier reliability is inconsistent
-        try {
-            const alphaPrice = await fetchAlphaLiveUSDGoldOunce();
-            if (alphaPrice > 0) return { price: alphaPrice, source: 'alpha' };
-        } catch (_) {}
-
-        throw new Error("Live source unavailable");
+            return await Promise.race([
+                Promise.any(sources.map(run => run())),
+                hardTimeout
+            ]);
+        } catch (_) {
+            throw new Error("Live source unavailable");
+        }
     }
 
     async function fetchLivePrice(options = {}) {
