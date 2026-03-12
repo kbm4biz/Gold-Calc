@@ -180,6 +180,10 @@
             background: rgba(212, 175, 55, 0.18);
             color: #fde68a;
         }
+        .mode-chip.quote {
+            background: rgba(16, 185, 129, 0.18);
+            color: #bbf7d0;
+        }
         .line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; color: #94a3b8; }
         .line.subtotal {
             margin-top: 12px;
@@ -209,6 +213,10 @@
         .slider:before { content:""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
         input:checked + .slider { background: var(--primary); }
         input:checked + .slider:before { transform: translateX(18px); }
+        .switch input:disabled + .slider {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
         
         .hidden { display: none; }
 
@@ -361,6 +369,25 @@
 
         <div class="toggle-wrap secondary">
             <div class="toggle-copy">
+                <span data-key="finalQuoteToggle">عندي السعر النهائي فقط</span>
+                <small data-key="finalQuoteToggleHint">إذا أعطاك المحل الوزن مع الإجمالي النهائي فقط، أدخل المبلغ وسنستخرج سعر الجرام والتحليل تلقائيًا.</small>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="finalQuoteToggle" onchange="calculate()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="input-group hidden" id="shopTotalGroup">
+            <label data-key="shopFinalTotal">السعر النهائي من المحل</label>
+            <div class="input-box">
+                <input type="number" id="shopFinalTotal" inputmode="decimal" enterkeyhint="done" placeholder="0.00" oninput="calculate()">
+            </div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:4px;" data-key="shopFinalTotalHint">* إذا كانت الضريبة مفعلة فسنفترض أن هذا الرقم شامل الضريبة النهائية</div>
+        </div>
+
+        <div class="toggle-wrap secondary">
+            <div class="toggle-copy">
                 <span data-key="manualLaborToggle">السعر اليدوي شامل المصنعية</span>
                 <small data-key="manualLaborToggleHint">عند إدخال سعر المحل للجرام شامل المصنعية، سنفصل الفرق عن السعر الرسمي تلقائيًا.</small>
             </div>
@@ -462,6 +489,10 @@
                         <th data-key="analysisSubtotal">سعر المحل قبل الضريبة</th>
                         <td id="analysisSubtotal">0.00 SAR</td>
                     </tr>
+                    <tr class="hidden" id="rowQuoteInput">
+                        <th data-key="analysisQuoteInput">السعر النهائي المدخل من المحل</th>
+                        <td id="analysisQuoteInput">0.00 SAR</td>
+                    </tr>
                     <tr>
                         <th data-key="analysisGapTotal">إجمالي فرق سعر المحل</th>
                         <td id="analysisGapTotal">0.00 SAR</td>
@@ -526,6 +557,10 @@
             dir: 'rtl', langBtn: 'English', title: 'حاسبة الذهب',
             chooseKarat: 'اختر العيار', weight: 'الوزن', labor: 'المصنعية (لـ 1 جرام)',
             laborHint: '* أدخلها فقط إذا كان سعر الجرام لا يشمل المصنعية', discount: 'خصم إضافي',
+            finalQuoteToggle: 'عندي السعر النهائي فقط',
+            finalQuoteToggleHint: 'إذا أعطاك المحل الوزن مع الإجمالي النهائي فقط، أدخل المبلغ وسنستخرج سعر الجرام والتحليل تلقائيًا.',
+            shopFinalTotal: 'السعر النهائي من المحل',
+            shopFinalTotalHint: '* إذا كانت الضريبة مفعلة فسنفترض أن هذا الرقم شامل الضريبة النهائية',
             manualLaborToggle: 'السعر اليدوي شامل المصنعية',
             manualLaborToggleHint: 'عند إدخال سعر المحل للجرام شامل المصنعية، سنفصل الفرق عن السعر الرسمي تلقائيًا.',
             vat: 'شامل الضريبة (15%)', goldCost: 'قيمة الذهب الأساسية', laborCost: 'المصنعية / الفرق',
@@ -543,6 +578,7 @@
             analysisBaseTotal: 'قيمة الذهب الأساسية في الحساب',
             analysisAppliedExtraTotal: 'إجمالي المصنعية / الفرق المحتسب',
             analysisSubtotal: 'سعر المحل قبل الضريبة',
+            analysisQuoteInput: 'السعر النهائي المدخل من المحل',
             analysisGapTotal: 'إجمالي فرق سعر المحل',
             analysisVat: 'الضريبة',
             analysisDiscount: 'الخصم',
@@ -558,8 +594,10 @@
             modeOfficial: 'سعر رسمي',
             modeManualBase: 'سعر يدوي + مصنعية',
             modeManualIncluded: 'سعر محل شامل',
+            modeFinalQuote: 'إجمالي نهائي فقط',
             officialMini: 'الرسمي:',
             noOfficialPriceYet: 'انتظر تحميل السعر الرسمي المباشر أو حدّث الأسعار لإظهار المقارنة.',
+            noWeightForQuote: 'أدخل الوزن مع السعر النهائي حتى نستخرج سعر الجرام ونفصل الفرق عن السعر الرسمي.',
             discountNone: 'لا يوجد',
             weightUnit: 'جم'
         },
@@ -567,6 +605,10 @@
             dir: 'ltr', langBtn: 'عربي', title: 'Gold Calculator',
             chooseKarat: 'Select Karat', weight: 'Weight (Grams)', labor: 'Labor Fee (per gram)',
             laborHint: '* Fill this only when the gram price does not already include labor.', discount: 'Discount',
+            finalQuoteToggle: 'I only have the final total',
+            finalQuoteToggleHint: 'If the shop only gave you weight and the final invoice total, enter it here and we will reverse-calculate the gram price and breakdown.',
+            shopFinalTotal: 'Shop final total',
+            shopFinalTotalHint: '* When VAT is enabled, this amount is treated as the final VAT-inclusive total',
             manualLaborToggle: 'Manual price includes labor',
             manualLaborToggleHint: 'If the shop quote per gram already includes labor, we will separate the gap from the official market price.',
             vat: 'Include VAT (15%)', goldCost: 'Base Gold Value', laborCost: 'Labor / Price Gap',
@@ -584,6 +626,7 @@
             analysisBaseTotal: 'Base gold value used',
             analysisAppliedExtraTotal: 'Applied labor / gap total',
             analysisSubtotal: 'Shop subtotal before VAT',
+            analysisQuoteInput: 'Entered final shop total',
             analysisGapTotal: 'Total shop gap',
             analysisVat: 'VAT',
             analysisDiscount: 'Discount',
@@ -599,8 +642,10 @@
             modeOfficial: 'Official price',
             modeManualBase: 'Manual price + labor',
             modeManualIncluded: 'Shop price incl. labor',
+            modeFinalQuote: 'Final total only',
             officialMini: 'Official:',
             noOfficialPriceYet: 'Wait for the live official price or refresh prices to unlock the comparison.',
+            noWeightForQuote: 'Enter both weight and the final shop total so the app can derive the gram price and compare it with official gold.',
             discountNone: 'None',
             weightUnit: 'g'
         }
@@ -956,9 +1001,17 @@
         chip.className = 'mode-chip';
         if (state.mode === 'manual-base') chip.classList.add('manual');
         if (state.mode === 'manual-included') chip.classList.add('included');
+        if (state.mode === 'final-quote') chip.classList.add('quote');
         chip.innerText = text[currentLang][state.modeKey];
 
-        document.getElementById('labor').disabled = state.manualPriceIncludesLabor;
+        document.getElementById('shopTotalGroup').classList.toggle('hidden', !state.finalQuoteMode);
+        document.getElementById('shopFinalTotal').disabled = !state.finalQuoteMode;
+        document.getElementById('labor').disabled = state.manualPriceIncludesLabor || state.finalQuoteMode;
+        document.getElementById('discount').disabled = state.finalQuoteMode;
+        document.getElementById('includeLaborToggle').disabled = state.finalQuoteMode;
+        document.querySelectorAll('.k-price-input').forEach((input) => {
+            input.disabled = state.finalQuoteMode;
+        });
         document.getElementById('txtGold').innerText = format(state.baseGoldTotal);
         document.getElementById('txtLabor').innerText = formatSigned(state.appliedExtraTotal);
         document.getElementById('txtSubtotal').innerText = format(state.shopSubtotal);
@@ -1037,36 +1090,57 @@
     function buildCalculationState() {
         const weight = Math.max(0, parseFloat(document.getElementById('weight').value) || 0);
         const laborInput = Math.max(0, parseFloat(document.getElementById('labor').value) || 0);
-        const discount = Math.max(0, parseFloat(document.getElementById('discount').value) || 0);
+        const discountInput = Math.max(0, parseFloat(document.getElementById('discount').value) || 0);
+        const finalQuoteMode = document.getElementById('finalQuoteToggle').checked;
+        const quotedFinalTotal = Math.max(0, parseFloat(document.getElementById('shopFinalTotal').value) || 0);
         const vatOn = document.getElementById('vatToggle').checked;
         const includeLaborToggle = document.getElementById('includeLaborToggle').checked;
         const officialPricePerGram = prices[selectedKarat] || 0;
         const manualPricePerGram = getManualOverrideValue(selectedKarat);
         const hasManual = manualPricePerGram !== null;
-        const manualPriceIncludesLabor = includeLaborToggle && hasManual;
-        const baseGoldPerGramUsed = manualPriceIncludesLabor
+        const manualPriceIncludesLabor = !finalQuoteMode && includeLaborToggle && hasManual;
+
+        let discount = finalQuoteMode ? 0 : discountInput;
+        let baseGoldPerGramUsed = manualPriceIncludesLabor
             ? officialPricePerGram
             : (manualPricePerGram ?? officialPricePerGram);
-        const appliedExtraPerGram = manualPriceIncludesLabor
+        let appliedExtraPerGram = manualPriceIncludesLabor
             ? (manualPricePerGram - officialPricePerGram)
             : laborInput;
-        const shopPricePerGram = baseGoldPerGramUsed + appliedExtraPerGram;
-        const gapVsOfficialPerGram = shopPricePerGram - officialPricePerGram;
-        const gapPercent = officialPricePerGram > 0
+        let shopPricePerGram = baseGoldPerGramUsed + appliedExtraPerGram;
+        let gapVsOfficialPerGram = shopPricePerGram - officialPricePerGram;
+        let gapPercent = officialPricePerGram > 0
             ? (gapVsOfficialPerGram / officialPricePerGram) * 100
             : null;
 
-        const officialGoldTotal = officialPricePerGram * weight;
-        const baseGoldTotal = baseGoldPerGramUsed * weight;
-        const appliedExtraTotal = appliedExtraPerGram * weight;
-        const shopSubtotal = shopPricePerGram * weight;
-        const gapVsOfficialTotal = gapVsOfficialPerGram * weight;
-        const vat = vatOn ? shopSubtotal * 0.15 : 0;
-        const total = shopSubtotal + vat - discount;
+        let officialGoldTotal = officialPricePerGram * weight;
+        let baseGoldTotal = baseGoldPerGramUsed * weight;
+        let appliedExtraTotal = appliedExtraPerGram * weight;
+        let shopSubtotal = shopPricePerGram * weight;
+        let vat = vatOn ? shopSubtotal * 0.15 : 0;
+        let total = shopSubtotal + vat - discount;
+        let gapVsOfficialTotal = gapVsOfficialPerGram * weight;
 
         let modeKey = 'modeOfficial';
         let mode = 'official';
-        if (manualPriceIncludesLabor) {
+        if (finalQuoteMode) {
+            modeKey = 'modeFinalQuote';
+            mode = 'final-quote';
+            baseGoldPerGramUsed = officialPricePerGram;
+            shopSubtotal = vatOn ? quotedFinalTotal / 1.15 : quotedFinalTotal;
+            vat = vatOn ? (quotedFinalTotal - shopSubtotal) : 0;
+            total = quotedFinalTotal;
+            shopPricePerGram = weight > 0 ? (shopSubtotal / weight) : 0;
+            appliedExtraPerGram = weight > 0 ? (shopPricePerGram - officialPricePerGram) : 0;
+            gapVsOfficialPerGram = weight > 0 ? (shopPricePerGram - officialPricePerGram) : null;
+            gapPercent = (officialPricePerGram > 0 && weight > 0)
+                ? (gapVsOfficialPerGram / officialPricePerGram) * 100
+                : null;
+            officialGoldTotal = officialPricePerGram * weight;
+            baseGoldTotal = officialGoldTotal;
+            appliedExtraTotal = shopSubtotal - baseGoldTotal;
+            gapVsOfficialTotal = shopSubtotal - officialGoldTotal;
+        } else if (manualPriceIncludesLabor) {
             modeKey = 'modeManualIncluded';
             mode = 'manual-included';
         } else if (hasManual) {
@@ -1081,6 +1155,8 @@
             manualPricePerGram,
             hasManual,
             manualPriceIncludesLabor,
+            finalQuoteMode,
+            quotedFinalTotal,
             baseGoldTotal,
             appliedExtraTotal,
             shopSubtotal,
@@ -1104,8 +1180,20 @@
             return text[currentLang].noOfficialPriceYet;
         }
 
+        if (state.finalQuoteMode && state.weight <= 0) {
+            return text[currentLang].noWeightForQuote;
+        }
+
         const official = formatGramPrice(state.officialPricePerGram);
         const shop = formatGramPrice(state.shopPricePerGram);
+
+        if (state.mode === 'final-quote') {
+            const quoted = formatCurrency(state.quotedFinalTotal);
+            if (currentLang === 'ar') {
+                return `تم استخدام الإجمالي النهائي ${quoted} مع وزن ${formatWeight(state.weight)} لاستخراج سعر المحل ${shop} لكل جرام. ${state.vatOn ? 'تم عكس الضريبة أولًا للحصول على السعر قبل الضريبة ثم مقارنة الفرق مع السعر الرسمي ' : 'تم التعامل مع المبلغ كسعر قبل الضريبة ثم مقارنته مع السعر الرسمي '} ${official}.`;
+            }
+            return `The entered final invoice ${quoted} and weight ${formatWeight(state.weight)} were used to reverse-calculate a shop price of ${shop} per gram. ${state.vatOn ? 'VAT was backed out first before comparing the quote against the official ' : 'The amount was treated as pre-VAT before comparing it against the official '}${official} price.`;
+        }
 
         if (state.mode === 'manual-included' && state.hasManual) {
             const manual = formatGramPrice(state.manualPricePerGram);
@@ -1130,9 +1218,10 @@
     }
 
     function renderDetailedAnalysis(state) {
+        document.getElementById('rowQuoteInput').classList.toggle('hidden', !state.finalQuoteMode);
         document.getElementById('analysisNote').innerText = buildAnalysisNote(state);
         document.getElementById('analysisOfficialGram').innerText = formatGramPrice(state.officialPricePerGram);
-        document.getElementById('analysisManualGram').innerText = state.hasManual
+        document.getElementById('analysisManualGram').innerText = (!state.finalQuoteMode && state.hasManual)
             ? formatGramPrice(state.manualPricePerGram)
             : '--';
         document.getElementById('analysisShopGram').innerText = formatGramPrice(state.shopPricePerGram);
@@ -1144,6 +1233,7 @@
         document.getElementById('analysisBaseTotal').innerText = formatCurrency(state.baseGoldTotal);
         document.getElementById('analysisAppliedExtraTotal').innerText = formatSignedCurrency(state.appliedExtraTotal);
         document.getElementById('analysisSubtotal').innerText = formatCurrency(state.shopSubtotal);
+        document.getElementById('analysisQuoteInput').innerText = formatCurrency(state.quotedFinalTotal);
         document.getElementById('analysisGapTotal').innerText = formatSignedCurrency(state.gapVsOfficialTotal);
         document.getElementById('analysisVat').innerText = formatCurrency(state.vat);
         document.getElementById('analysisDiscount').innerText = state.discount > 0
