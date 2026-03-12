@@ -123,6 +123,11 @@
         html[dir="rtl"] input { text-align: right; }
         
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(212,175,55,0.1); }
+        input:disabled {
+            background: #f8fafc;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
         .suffix { position: absolute; left: 15px; color: #94a3b8; font-size: 0.9rem; pointer-events: none; }
         html[dir="ltr"] .suffix { right: 15px; left: auto; }
 
@@ -148,13 +153,56 @@
             padding: 20px;
             border-radius: 15px;
         }
+        .result-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .result-head strong {
+            font-size: 1rem;
+        }
+        .mode-chip {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.12);
+            color: #fef3c7;
+            font-size: 0.75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .mode-chip.manual {
+            background: rgba(59, 130, 246, 0.16);
+            color: #bfdbfe;
+        }
+        .mode-chip.included {
+            background: rgba(212, 175, 55, 0.18);
+            color: #fde68a;
+        }
         .line { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; color: #94a3b8; }
+        .line.subtotal {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #475569;
+            color: #e2e8f0;
+        }
         .line.final { margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; color: var(--primary); font-weight: 700; font-size: 1.3rem; align-items: center; }
         .line span:last-child { color: #f8fafc; }
         .line.final span:last-child { color: var(--primary); }
 
         /* Toggle */
-        .toggle-wrap { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; font-weight: 500;}
+        .toggle-wrap { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.9rem; font-weight: 500; gap: 12px; }
+        .toggle-wrap.secondary { align-items: flex-start; }
+        .toggle-copy { flex: 1; }
+        .toggle-copy small {
+            display: block;
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
         .switch { position: relative; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px; transition: .3s; cursor: pointer; }
@@ -218,6 +266,59 @@
         .k-price {
             font-variant-numeric: tabular-nums;
         }
+        .k-price-note {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.72rem;
+            color: #92400e;
+        }
+        .detail-card {
+            margin-top: 16px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+        }
+        .detail-head h3 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+        }
+        .analysis-note {
+            margin: 0 0 12px;
+            font-size: 0.84rem;
+            line-height: 1.7;
+            color: #475569;
+        }
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.86rem;
+        }
+        .detail-table th,
+        .detail-table td {
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-variant-numeric: tabular-nums;
+        }
+        .detail-table th {
+            text-align: start;
+            color: #475569;
+            font-weight: 600;
+        }
+        .detail-table td {
+            text-align: end;
+            color: #0f172a;
+        }
+        .detail-table tbody tr:last-child th,
+        .detail-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .detail-table .total-row th,
+        .detail-table .total-row td {
+            color: #92400e;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -248,7 +349,7 @@
             <div class="input-box">
                 <input type="number" id="labor" inputmode="decimal" enterkeyhint="done" placeholder="25" oninput="calculate()">
             </div>
-            <div style="font-size:0.75rem; color:#64748b; margin-top:4px;" data-key="laborHint">* اسأل البائع عن سعر المصنعية</div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:4px;" data-key="laborHint">* أدخلها فقط إذا كان سعر الجرام لا يشمل المصنعية</div>
         </div>
 
         <div class="input-group">
@@ -258,8 +359,21 @@
             </div>
         </div>
 
+        <div class="toggle-wrap secondary">
+            <div class="toggle-copy">
+                <span data-key="manualLaborToggle">السعر اليدوي شامل المصنعية</span>
+                <small data-key="manualLaborToggleHint">عند إدخال سعر المحل للجرام شامل المصنعية، سنفصل الفرق عن السعر الرسمي تلقائيًا.</small>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="includeLaborToggle" onchange="calculate()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <div class="toggle-wrap">
-            <span data-key="vat">ضريبة (15%)</span>
+            <div class="toggle-copy">
+                <span data-key="vat">ضريبة (15%)</span>
+            </div>
             <label class="switch">
                 <input type="checkbox" id="vatToggle" checked onchange="calculate()">
                 <span class="slider"></span>
@@ -267,13 +381,21 @@
         </div>
 
         <div class="result-box">
+            <div class="result-head">
+                <strong data-key="summaryTitle">ملخص التسعير</strong>
+                <span class="mode-chip" id="calcModeChip">سعر رسمي</span>
+            </div>
             <div class="line">
-                <span data-key="goldCost">سعر الذهب</span>
+                <span data-key="goldCost">قيمة الذهب الأساسية</span>
                 <span id="txtGold">0.00</span>
             </div>
             <div class="line">
-                <span data-key="laborCost">المصنعية</span>
+                <span data-key="laborCost">المصنعية / الفرق</span>
                 <span id="txtLabor">0.00</span>
+            </div>
+            <div class="line subtotal">
+                <span data-key="subtotal">سعر المحل قبل الضريبة</span>
+                <span id="txtSubtotal">0.00</span>
             </div>
             <div class="line" id="rowVat">
                 <span data-key="vatCost">الضريبة</span>
@@ -287,6 +409,77 @@
                 <span data-key="total">الإجمالي</span>
                 <span id="txtTotal">0.00 SAR</span>
             </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="detail-head">
+                <h3 data-key="analysisTitle">تحليل سعر المحل</h3>
+            </div>
+            <p class="analysis-note" id="analysisNote"></p>
+            <table class="detail-table">
+                <tbody>
+                    <tr>
+                        <th data-key="analysisOfficialGram">السعر الرسمي / جرام</th>
+                        <td id="analysisOfficialGram">0.000 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisManualGram">السعر اليدوي المدخل / جرام</th>
+                        <td id="analysisManualGram">--</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisShopGram">سعر المحل المستخدم / جرام</th>
+                        <td id="analysisShopGram">0.000 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisAppliedExtraGram">المصنعية / الفرق المحتسب / جرام</th>
+                        <td id="analysisAppliedExtraGram">0.000 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisGapGram">فرق سعر المحل عن الرسمي / جرام</th>
+                        <td id="analysisGapGram">0.000 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisGapPercent">نسبة فرق سعر المحل</th>
+                        <td id="analysisGapPercent">0.00%</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisWeight">الوزن المستخدم</th>
+                        <td id="analysisWeight">0.00 g</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisOfficialTotal">قيمة الذهب الرسمي</th>
+                        <td id="analysisOfficialTotal">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisBaseTotal">قيمة الذهب الأساسية في الحساب</th>
+                        <td id="analysisBaseTotal">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisAppliedExtraTotal">إجمالي المصنعية / الفرق المحتسب</th>
+                        <td id="analysisAppliedExtraTotal">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisSubtotal">سعر المحل قبل الضريبة</th>
+                        <td id="analysisSubtotal">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisGapTotal">إجمالي فرق سعر المحل</th>
+                        <td id="analysisGapTotal">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisVat">الضريبة</th>
+                        <td id="analysisVat">0.00 SAR</td>
+                    </tr>
+                    <tr>
+                        <th data-key="analysisDiscount">الخصم</th>
+                        <td id="analysisDiscount">0.00 SAR</td>
+                    </tr>
+                    <tr class="total-row">
+                        <th data-key="analysisFinal">الصافي النهائي</th>
+                        <td id="analysisFinal">0.00 SAR</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="chart-card">
@@ -332,9 +525,28 @@
         ar: {
             dir: 'rtl', langBtn: 'English', title: 'حاسبة الذهب',
             chooseKarat: 'اختر العيار', weight: 'الوزن', labor: 'المصنعية (لـ 1 جرام)',
-            laborHint: '* يختلف حسب المحل والتصميم', discount: 'خصم إضافي',
-            vat: 'شامل الضريبة (15%)', goldCost: 'قيمة الذهب', laborCost: 'قيمة المصنعية',
+            laborHint: '* أدخلها فقط إذا كان سعر الجرام لا يشمل المصنعية', discount: 'خصم إضافي',
+            manualLaborToggle: 'السعر اليدوي شامل المصنعية',
+            manualLaborToggleHint: 'عند إدخال سعر المحل للجرام شامل المصنعية، سنفصل الفرق عن السعر الرسمي تلقائيًا.',
+            vat: 'شامل الضريبة (15%)', goldCost: 'قيمة الذهب الأساسية', laborCost: 'المصنعية / الفرق',
             vatCost: 'الضريبة (15%)', discCost: 'قيمة الخصم', total: 'الإجمالي',
+            summaryTitle: 'ملخص التسعير', subtotal: 'سعر المحل قبل الضريبة',
+            analysisTitle: 'تحليل سعر المحل',
+            analysisOfficialGram: 'السعر الرسمي / جرام',
+            analysisManualGram: 'السعر اليدوي المدخل / جرام',
+            analysisShopGram: 'سعر المحل المستخدم / جرام',
+            analysisAppliedExtraGram: 'المصنعية / الفرق المحتسب / جرام',
+            analysisGapGram: 'فرق سعر المحل عن الرسمي / جرام',
+            analysisGapPercent: 'نسبة فرق سعر المحل',
+            analysisWeight: 'الوزن المستخدم',
+            analysisOfficialTotal: 'قيمة الذهب الرسمي',
+            analysisBaseTotal: 'قيمة الذهب الأساسية في الحساب',
+            analysisAppliedExtraTotal: 'إجمالي المصنعية / الفرق المحتسب',
+            analysisSubtotal: 'سعر المحل قبل الضريبة',
+            analysisGapTotal: 'إجمالي فرق سعر المحل',
+            analysisVat: 'الضريبة',
+            analysisDiscount: 'الخصم',
+            analysisFinal: 'الصافي النهائي',
             refresh: 'تحديث الأسعار', loading: 'جاري التحميل...', error: 'خطأ في الاتصال',
             monthTrend: 'سعر العيار خلال آخر 30 يوم',
             chartLoading: 'جاري تحميل سجل الأسعار الحقيقي...',
@@ -342,14 +554,40 @@
             chartRealOnly: 'الرسم يعرض بيانات حقيقية فقط (بدون أي تقدير).',
             chartApiRate: 'قد تتوقف القراءة مؤقتًا بسبب حد الطلبات المجاني من Alpha Vantage.',
             chartSourceApi: 'المصدر: Alpha Vantage',
-            chartSourceLocal: 'مع دعم الأيام المحفوظة محليًا فقط عند غياب يوم من المزود.'
+            chartSourceLocal: 'مع دعم الأيام المحفوظة محليًا فقط عند غياب يوم من المزود.',
+            modeOfficial: 'سعر رسمي',
+            modeManualBase: 'سعر يدوي + مصنعية',
+            modeManualIncluded: 'سعر محل شامل',
+            officialMini: 'الرسمي:',
+            noOfficialPriceYet: 'انتظر تحميل السعر الرسمي المباشر أو حدّث الأسعار لإظهار المقارنة.',
+            discountNone: 'لا يوجد',
+            weightUnit: 'جم'
         },
         en: {
             dir: 'ltr', langBtn: 'عربي', title: 'Gold Calculator',
             chooseKarat: 'Select Karat', weight: 'Weight (Grams)', labor: 'Labor Fee (per gram)',
-            laborHint: '* Varies by shop and design', discount: 'Discount',
-            vat: 'Include VAT (15%)', goldCost: 'Gold Price', laborCost: 'Labor Cost',
+            laborHint: '* Fill this only when the gram price does not already include labor.', discount: 'Discount',
+            manualLaborToggle: 'Manual price includes labor',
+            manualLaborToggleHint: 'If the shop quote per gram already includes labor, we will separate the gap from the official market price.',
+            vat: 'Include VAT (15%)', goldCost: 'Base Gold Value', laborCost: 'Labor / Price Gap',
             vatCost: 'VAT (15%)', discCost: 'Discount', total: 'Total Amount',
+            summaryTitle: 'Pricing Summary', subtotal: 'Shop subtotal before VAT',
+            analysisTitle: 'Shop Price Analysis',
+            analysisOfficialGram: 'Official price / gram',
+            analysisManualGram: 'Manual entered price / gram',
+            analysisShopGram: 'Shop price used / gram',
+            analysisAppliedExtraGram: 'Applied labor / gap / gram',
+            analysisGapGram: 'Shop gap vs official / gram',
+            analysisGapPercent: 'Shop gap percentage',
+            analysisWeight: 'Weight used',
+            analysisOfficialTotal: 'Official gold value',
+            analysisBaseTotal: 'Base gold value used',
+            analysisAppliedExtraTotal: 'Applied labor / gap total',
+            analysisSubtotal: 'Shop subtotal before VAT',
+            analysisGapTotal: 'Total shop gap',
+            analysisVat: 'VAT',
+            analysisDiscount: 'Discount',
+            analysisFinal: 'Net final total',
             refresh: 'Refresh Prices', loading: 'Loading...', error: 'Connection Error',
             monthTrend: 'Selected Karat Price - Last 30 Days',
             chartLoading: 'Loading real historical prices...',
@@ -357,7 +595,14 @@
             chartRealOnly: 'Chart shows real data only (no estimated points).',
             chartApiRate: 'History may pause due to Alpha Vantage free-tier rate limits.',
             chartSourceApi: 'Source: Alpha Vantage',
-            chartSourceLocal: 'Plus locally saved real days when provider dates are missing.'
+            chartSourceLocal: 'Plus locally saved real days when provider dates are missing.',
+            modeOfficial: 'Official price',
+            modeManualBase: 'Manual price + labor',
+            modeManualIncluded: 'Shop price incl. labor',
+            officialMini: 'Official:',
+            noOfficialPriceYet: 'Wait for the live official price or refresh prices to unlock the comparison.',
+            discountNone: 'None',
+            weightUnit: 'g'
         }
     };
 
@@ -544,6 +789,11 @@
         return prices[karat] || 0;
     }
 
+    function getManualOverrideValue(karat) {
+        const manual = parseFloat(manualOverrides[karat]);
+        return Number.isFinite(manual) && manual > 0 ? manual : null;
+    }
+
     function applyUsdOzToKaratPrices(priceInUSD_Ounce) {
         const priceGramUSD = priceInUSD_Ounce / OUNCE_TO_GRAM;
         const priceGramSAR_24K = priceGramUSD * SAR_PEG;
@@ -680,6 +930,7 @@
             div.innerHTML = `
                 <span class="k-label">${label}</span>
                 <input class="k-price-input" data-karat="${key}" type="number" step="0.001" min="0" value="${formatPrice(getEffectiveKaratPrice(key))}">
+                ${hasManual ? `<span class="k-price-note">${text[currentLang].officialMini} ${formatPrice(prices[key] || 0)}</span>` : ''}
             `;
             container.appendChild(div);
 
@@ -700,48 +951,205 @@
     }
 
     function calculate() {
-        const w = parseFloat(document.getElementById('weight').value) || 0;
-        const labor = parseFloat(document.getElementById('labor').value) || 0;
-        const disc = parseFloat(document.getElementById('discount').value) || 0;
-        const vatOn = document.getElementById('vatToggle').checked;
+        const state = buildCalculationState();
+        const chip = document.getElementById('calcModeChip');
+        chip.className = 'mode-chip';
+        if (state.mode === 'manual-base') chip.classList.add('manual');
+        if (state.mode === 'manual-included') chip.classList.add('included');
+        chip.innerText = text[currentLang][state.modeKey];
 
-        const goldPrice = getEffectiveKaratPrice(selectedKarat) * w;
-        const laborPrice = labor * w;
-        const subtotal = goldPrice + laborPrice;
-        
-        const vat = vatOn ? subtotal * 0.15 : 0;
-        const total = subtotal + vat - disc;
+        document.getElementById('labor').disabled = state.manualPriceIncludesLabor;
+        document.getElementById('txtGold').innerText = format(state.baseGoldTotal);
+        document.getElementById('txtLabor').innerText = formatSigned(state.appliedExtraTotal);
+        document.getElementById('txtSubtotal').innerText = format(state.shopSubtotal);
 
-        // UI Updates
-        document.getElementById('txtGold').innerText = format(goldPrice);
-        document.getElementById('txtLabor').innerText = format(laborPrice);
-        
         const vatRow = document.getElementById('rowVat');
-        if(vatOn) {
+        if(state.vatOn) {
             vatRow.style.opacity = '1';
-            document.getElementById('txtVat').innerText = format(vat);
+            document.getElementById('txtVat').innerText = format(state.vat);
         } else {
             vatRow.style.opacity = '0.3';
             document.getElementById('txtVat').innerText = '0.00';
         }
 
         const discRow = document.getElementById('rowDisc');
-        if(disc > 0) {
+        if(state.discount > 0) {
             discRow.classList.remove('hidden');
-            document.getElementById('txtDisc').innerText = '-' + format(disc);
+            document.getElementById('txtDisc').innerText = '-' + format(state.discount);
         } else {
             discRow.classList.add('hidden');
         }
 
-        document.getElementById('txtTotal').innerText = format(total) + " SAR";
+        document.getElementById('txtTotal').innerText = formatCurrency(state.total);
+        renderDetailedAnalysis(state);
     }
 
     function format(num) {
+        if (!Number.isFinite(num)) return '0.00';
         return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
     function formatPrice(num) {
+        if (!Number.isFinite(num)) return '0.000';
         return num.toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+    }
+
+    function formatSigned(num) {
+        if (!Number.isFinite(num)) return '0.00';
+        const sign = num > 0 ? '+' : num < 0 ? '-' : '';
+        return sign + format(Math.abs(num));
+    }
+
+    function currencyLabel() {
+        return currentLang === 'ar' ? 'ر.س' : 'SAR';
+    }
+
+    function formatCurrency(num) {
+        return `${format(num)} ${currencyLabel()}`;
+    }
+
+    function formatGramPrice(num) {
+        return `${formatPrice(num)} ${currencyLabel()}`;
+    }
+
+    function formatSignedCurrency(num) {
+        if (!Number.isFinite(num)) return '--';
+        const sign = num > 0 ? '+' : num < 0 ? '-' : '';
+        return `${sign}${format(Math.abs(num))} ${currencyLabel()}`;
+    }
+
+    function formatSignedGramPrice(num) {
+        if (!Number.isFinite(num)) return '--';
+        const sign = num > 0 ? '+' : num < 0 ? '-' : '';
+        return `${sign}${formatPrice(Math.abs(num))} ${currencyLabel()}`;
+    }
+
+    function formatSignedPercent(num) {
+        if (!Number.isFinite(num)) return '--';
+        const sign = num > 0 ? '+' : num < 0 ? '-' : '';
+        return `${sign}${Math.abs(num).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%`;
+    }
+
+    function formatWeight(num) {
+        return `${format(num)} ${text[currentLang].weightUnit}`;
+    }
+
+    function buildCalculationState() {
+        const weight = Math.max(0, parseFloat(document.getElementById('weight').value) || 0);
+        const laborInput = Math.max(0, parseFloat(document.getElementById('labor').value) || 0);
+        const discount = Math.max(0, parseFloat(document.getElementById('discount').value) || 0);
+        const vatOn = document.getElementById('vatToggle').checked;
+        const includeLaborToggle = document.getElementById('includeLaborToggle').checked;
+        const officialPricePerGram = prices[selectedKarat] || 0;
+        const manualPricePerGram = getManualOverrideValue(selectedKarat);
+        const hasManual = manualPricePerGram !== null;
+        const manualPriceIncludesLabor = includeLaborToggle && hasManual;
+        const baseGoldPerGramUsed = manualPriceIncludesLabor
+            ? officialPricePerGram
+            : (manualPricePerGram ?? officialPricePerGram);
+        const appliedExtraPerGram = manualPriceIncludesLabor
+            ? (manualPricePerGram - officialPricePerGram)
+            : laborInput;
+        const shopPricePerGram = baseGoldPerGramUsed + appliedExtraPerGram;
+        const gapVsOfficialPerGram = shopPricePerGram - officialPricePerGram;
+        const gapPercent = officialPricePerGram > 0
+            ? (gapVsOfficialPerGram / officialPricePerGram) * 100
+            : null;
+
+        const officialGoldTotal = officialPricePerGram * weight;
+        const baseGoldTotal = baseGoldPerGramUsed * weight;
+        const appliedExtraTotal = appliedExtraPerGram * weight;
+        const shopSubtotal = shopPricePerGram * weight;
+        const gapVsOfficialTotal = gapVsOfficialPerGram * weight;
+        const vat = vatOn ? shopSubtotal * 0.15 : 0;
+        const total = shopSubtotal + vat - discount;
+
+        let modeKey = 'modeOfficial';
+        let mode = 'official';
+        if (manualPriceIncludesLabor) {
+            modeKey = 'modeManualIncluded';
+            mode = 'manual-included';
+        } else if (hasManual) {
+            modeKey = 'modeManualBase';
+            mode = 'manual-base';
+        }
+
+        return {
+            discount,
+            vatOn,
+            officialPricePerGram,
+            manualPricePerGram,
+            hasManual,
+            manualPriceIncludesLabor,
+            baseGoldTotal,
+            appliedExtraTotal,
+            shopSubtotal,
+            gapVsOfficialPerGram,
+            gapPercent,
+            officialGoldTotal,
+            shopPricePerGram,
+            weight,
+            baseGoldPerGramUsed,
+            appliedExtraPerGram,
+            gapVsOfficialTotal,
+            vat,
+            total,
+            mode,
+            modeKey
+        };
+    }
+
+    function buildAnalysisNote(state) {
+        if (state.officialPricePerGram <= 0) {
+            return text[currentLang].noOfficialPriceYet;
+        }
+
+        const official = formatGramPrice(state.officialPricePerGram);
+        const shop = formatGramPrice(state.shopPricePerGram);
+
+        if (state.mode === 'manual-included' && state.hasManual) {
+            const manual = formatGramPrice(state.manualPricePerGram);
+            if (currentLang === 'ar') {
+                return `السعر الرسمي ${official} لكل جرام، وسعر المحل المدخل ${manual}. تم اعتبار الفرق ${formatSignedGramPrice(state.gapVsOfficialPerGram)} لكل جرام كمصنعية أو هامش داخل سعر البيع ${shop}.`;
+            }
+            return `Official gold is ${official} per gram and the entered shop quote is ${manual}. The ${formatSignedGramPrice(state.gapVsOfficialPerGram)} per gram gap is treated as labor or margin inside the final ${shop} selling price.`;
+        }
+
+        if (state.mode === 'manual-base' && state.hasManual) {
+            const manual = formatGramPrice(state.manualPricePerGram);
+            if (currentLang === 'ar') {
+                return `السعر الرسمي ${official} لكل جرام، وأنت أدخلت ${manual} كسعر ذهب أساسي. بعد إضافة المصنعية المنفصلة أصبح سعر البيع المستخدم ${shop}، بفارق ${formatSignedGramPrice(state.gapVsOfficialPerGram)} لكل جرام عن السعر الرسمي.`;
+            }
+            return `Official gold is ${official} per gram, and you entered ${manual} as the base gold price. After the separate labor fee, the calculator uses ${shop} as the selling price, which is ${formatSignedGramPrice(state.gapVsOfficialPerGram)} per gram versus official.`;
+        }
+
+        if (currentLang === 'ar') {
+            return `يتم الحساب الآن على السعر الرسمي ${official} مع مصنعية منفصلة، لذلك سعر البيع المستخدم هو ${shop} لكل جرام. أدخل سعر محل يدويًا إذا أردت مقارنة مباشرة مع تسعير البائع.`;
+        }
+        return `The calculation is currently using the official ${official} price with a separate labor fee, so the active shop price is ${shop} per gram. Enter a manual shop price when you want a direct comparison against the seller's quote.`;
+    }
+
+    function renderDetailedAnalysis(state) {
+        document.getElementById('analysisNote').innerText = buildAnalysisNote(state);
+        document.getElementById('analysisOfficialGram').innerText = formatGramPrice(state.officialPricePerGram);
+        document.getElementById('analysisManualGram').innerText = state.hasManual
+            ? formatGramPrice(state.manualPricePerGram)
+            : '--';
+        document.getElementById('analysisShopGram').innerText = formatGramPrice(state.shopPricePerGram);
+        document.getElementById('analysisAppliedExtraGram').innerText = formatSignedGramPrice(state.appliedExtraPerGram);
+        document.getElementById('analysisGapGram').innerText = formatSignedGramPrice(state.gapVsOfficialPerGram);
+        document.getElementById('analysisGapPercent').innerText = formatSignedPercent(state.gapPercent);
+        document.getElementById('analysisWeight').innerText = formatWeight(state.weight);
+        document.getElementById('analysisOfficialTotal').innerText = formatCurrency(state.officialGoldTotal);
+        document.getElementById('analysisBaseTotal').innerText = formatCurrency(state.baseGoldTotal);
+        document.getElementById('analysisAppliedExtraTotal').innerText = formatSignedCurrency(state.appliedExtraTotal);
+        document.getElementById('analysisSubtotal').innerText = formatCurrency(state.shopSubtotal);
+        document.getElementById('analysisGapTotal').innerText = formatSignedCurrency(state.gapVsOfficialTotal);
+        document.getElementById('analysisVat').innerText = formatCurrency(state.vat);
+        document.getElementById('analysisDiscount').innerText = state.discount > 0
+            ? `-${formatCurrency(state.discount)}`
+            : text[currentLang].discountNone;
+        document.getElementById('analysisFinal').innerText = formatCurrency(state.total);
     }
 
     function getHistoryStore() {
